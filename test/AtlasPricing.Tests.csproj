@@ -6,6 +6,7 @@
     <UseSharedCompilation>false</UseSharedCompilation>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../AtlasFontPolicy.cs" Link="AtlasFontPolicy.cs" />
     <Compile Include="../RitualRewardPricing.cs" Link="RitualRewardPricing.cs" />
     <Compile Include="$(GameHelperHostRoot)/GameHelper/Plugin/Price/IPriceProvider.cs" Link="IPriceProvider.cs" />
     <Compile Include="$(GameHelperHostRoot)/GameHelper/Plugin/Price/PriceQuery.cs" Link="PriceQuery.cs" />

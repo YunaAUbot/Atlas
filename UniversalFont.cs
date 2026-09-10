@@ -28,7 +28,8 @@ namespace Atlas
 
         public static void Apply(string dllDirectory)
         {
-            if (Core.Overlay == null)
+            if (Core.Overlay == null || !AtlasFontPolicy.CanReplaceGlobalFont(
+                Environment.GetEnvironmentVariable("GAMEHELPER2_OVERLAY_BACKEND")))
                 return;
 
             var fontsDir = Path.Join(dllDirectory, "fonts");

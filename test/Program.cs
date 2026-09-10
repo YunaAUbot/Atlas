@@ -6,6 +6,10 @@ static void Check(bool condition, string message)
     if (!condition) throw new Exception(message);
 }
 
+Check(!AtlasFontPolicy.CanReplaceGlobalFont("native-gpu"), "Native backend owns global font atlas");
+Check(!AtlasFontPolicy.CanReplaceGlobalFont("NATIVE-GPU"), "Backend comparison is case-insensitive");
+Check(AtlasFontPolicy.CanReplaceGlobalFont(null), "Windows opt-in remains available");
+
 var cases = new (string Label, string Name, int Quantity, bool UnitOnly)[]
 {
     ("Divine Orbs x5", "Divine Orb", 5, false),

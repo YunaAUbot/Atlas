@@ -5,6 +5,9 @@ This fork targets **GameHelper2-LinuxFork with the shared price-provider API**.
 
 Our additions:
 
+- **Font safety:** global font replacement is opt-in and disabled on the native Linux
+  backend. Configure fonts in GameHelper instead; Atlas keeps its host font atlas.
+
 - **Ritual Atlas Line price weights:** uses the registered NinjaPricer provider's
   Exalted-equivalent prices. Known stack sizes multiply the price. Unknown stack
   sizes use one item's price, marked `*`; this is a ranking score, not guaranteed profit.

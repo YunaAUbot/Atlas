@@ -15,7 +15,7 @@ namespace Atlas
         // When on, the plugin loads its bundled fonts (DejaVuSans + GNU Unifont fallback) into the
         // overlay so map names in ANY language render without the user configuring a font in GH.
         // Default on so the plugin works out-of-the-box on a vanilla GameHelper.
-        public bool UniversalFont = true;
+        public bool UniversalFont = false;
 
         // Map-node display-name language: resolves names from maps.json "translates".
         //   "auto"  (default) = follow GameHelper's UI language (re-resolves live when it changes).

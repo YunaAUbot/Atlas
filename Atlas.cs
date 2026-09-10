@@ -435,6 +435,9 @@ namespace Atlas
                     "the overlay also stays visible while the inventory is open."));
 
                 ImGui.SeparatorText(this.L("atlas.font", "Font"));
+                bool canReplaceFont = AtlasFontPolicy.CanReplaceGlobalFont(
+                    Environment.GetEnvironmentVariable("GAMEHELPER2_OVERLAY_BACKEND"));
+                ImGui.BeginDisabled(!canReplaceFont);
                 if (ImGui.Checkbox(this.L("atlas.universal_font", "Universal font (render map names in any language)"), ref Settings.UniversalFont))
                 {
                     if (Settings.UniversalFont)
@@ -442,6 +445,9 @@ namespace Atlas
                     else
                         UniversalFont.Restore();
                 }
+                ImGui.EndDisabled();
+                if (!canReplaceFont)
+                    ImGui.TextDisabled(this.L("atlas.native_font_owned_by_host", "Native Linux renderer: using GameHelper's configured font."));
                 ImGuiHelper.ToolTip(this.L("atlas.universal_font_hint", "Loads the plugin's bundled DejaVuSans + GNU Unifont into the overlay so " +
                     "any-language map names render without configuring a font in GameHelper. Affects the whole overlay; " +
                     "turning it off restores GameHelper's configured font."));
