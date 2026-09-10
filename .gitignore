@@ -3,3 +3,7 @@ obj/
 gen_contenttokens.py
 gen_mapcontent.py
 config/expedition_debug.jsonl
+
+**/bin/
+**/obj/
+config/

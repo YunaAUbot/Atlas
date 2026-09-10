@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <GameHelperHostRoot Condition="'$(GameHelperHostRoot)' == ''">$(GAMEHELPER2_HOST_ROOT)</GameHelperHostRoot>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier><ImplicitUsings>enable</ImplicitUsings>
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../RitualRewardPricing.cs" Link="RitualRewardPricing.cs" />
+    <Compile Include="$(GameHelperHostRoot)/GameHelper/Plugin/Price/IPriceProvider.cs" Link="IPriceProvider.cs" />
+    <Compile Include="$(GameHelperHostRoot)/GameHelper/Plugin/Price/PriceQuery.cs" Link="PriceQuery.cs" />
+    <Compile Include="$(GameHelperHostRoot)/GameHelper/Plugin/Price/PriceQuote.cs" Link="PriceQuote.cs" />
+    <Compile Include="$(GameHelperHostRoot)/GameHelper/Plugin/Price/PriceProviderStatus.cs" Link="PriceProviderStatus.cs" />
+  </ItemGroup>
+</Project>

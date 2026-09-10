@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
+    <DefaultItemExcludes>$(DefaultItemExcludes);test/**;**/bin/**;**/obj/**</DefaultItemExcludes>
+    <GameHelperHostRoot Condition="Exists('$(MSBuildProjectDirectory)/../../GameHelper/GameHelper.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</GameHelperHostRoot>
+    <GameHelperHostRoot Condition="'$(GameHelperHostRoot)' == ''">$(GAMEHELPER2_HOST_ROOT)</GameHelperHostRoot>
     <Version>0.5.5</Version>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>disable</Nullable>
@@ -19,8 +22,11 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
+  <Target Name="ValidateGameHelperHost" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(GameHelperHostRoot)/GameHelper/GameHelper.csproj')" Text="Set GAMEHELPER2_HOST_ROOT or GameHelperHostRoot to your GameHelper2-LinuxFork checkout." />
+  </Target>
   <ItemGroup>
-    <ProjectReference Include="..\..\GameHelper\GameHelper.csproj">
+    <ProjectReference Include="$(GameHelperHostRoot)/GameHelper/GameHelper.csproj">
       <Private>false</Private>
       <CopyLocalSatelliteAssemblies>false</CopyLocalSatelliteAssemblies>
     </ProjectReference>
@@ -59,7 +65,7 @@
     <None Include="Localization\*.json" CopyToOutputDirectory="PreserveNewest" Link="Localization\%(Filename)%(Extension)" />
   </ItemGroup>
 
-  <Target Name="CopyFiles" AfterTargets="Build">
+  <Target Name="CopyFiles" AfterTargets="Build" Condition="Exists('$(MSBuildProjectDirectory)/../../GameHelper/GameHelper.csproj')">
     <Copy SourceFiles="$(OutDir)$(TargetName)$(TargetExt);$(OutDir)$(TargetName).pdb;" DestinationFolder="..\..\GameHelper\$(OutDir)Plugins\$(ProjectName)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(OutDir)json\biome.json;$(OutDir)json\content.json;$(OutDir)json\mapcontent.json;$(OutDir)json\maps.json;$(OutDir)json\mapratings.json;$(OutDir)json\ritualmods.json" DestinationFolder="..\..\GameHelper\$(OutDir)Plugins\$(ProjectName)\json" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(OutDir)fonts\DejaVuSans.ttf;$(OutDir)fonts\unifont.ttf" DestinationFolder="..\..\GameHelper\$(OutDir)Plugins\$(ProjectName)\fonts" SkipUnchangedFiles="true" />

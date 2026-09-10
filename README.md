@@ -1,3 +1,48 @@
+# YunaAUbot Atlas fork
+
+Based on yokkenUA/Atlas **0.5.5**, upstream commit `55a4bd6`.
+This fork targets **GameHelper2-LinuxFork with the shared price-provider API**.
+
+Our additions:
+
+- **Ritual Atlas Line price weights:** uses the registered NinjaPricer provider's
+  Exalted-equivalent prices. Known stack sizes multiply the price. Unknown stack
+  sizes use one item's price, marked `*`; this is a ranking score, not guaranteed profit.
+- **Manual fallback:** when a reward has no quote, the existing manual weight applies.
+  Automatic weights can be disabled. Upstream's saved/default manual weights remain
+  available; in automatic mode their values count as Exalted-equivalent scores.
+- **Bounded refresh work:** one quote per distinct item name, at most once per five
+  seconds while the planner/settings are used. Routes re-sort only when weights change.
+  No additional price-network client is introduced.
+- **Atlas performance:** skip inventory/player/language work when the Atlas is closed,
+  and reuse route/graph coordinate dictionaries. Draw-list channels are only split
+  after the early-return checks.
+
+Upstream's current routing, reward predictions, maps, assets and other features
+remain in place. The plugin assembly is **Atlas.dll**, installed under **Plugins/Atlas**.
+It is a separate plugin from the host's bundled Atlas2; enable only the intended one
+when comparing them. Creating this fork does not migrate Atlas2's saved settings.
+
+## Build and verification
+
+Build the complete GameHelper2-LinuxFork host solution first. This plugin supports
+`GAMEHELPER2_HOST_ROOT` or `-p:GameHelperHostRoot=...` for a standalone checkout,
+and resolves the host automatically when placed under its `Plugins/Atlas` directory.
+
+```bash
+export GAMEHELPER2_HOST_ROOT=/path/to/GameHelper2-LinuxFork
+dotnet build Atlas.csproj -c Release -p:EnableWindowsTargeting=true -p:BuildProjectReferences=false
+dotnet run --project test/AtlasPricing.Tests.csproj -c Release
+```
+
+The pricing probe covers mapping, quantities, fractional prices, refresh cadence,
+provider unload/failure and manual fallback. The fork was built as part of the full
+host/plugin solution. Rendering and predictions still require live in-game validation.
+Tests are confined to `test/`, excluded from production compilation and Git-plugin
+discovery. Original upstream documentation follows.
+
+---
+
 # Atlas
 
 A [GH](https://github.com/Gordin/GameHelper2) plugin that overlays

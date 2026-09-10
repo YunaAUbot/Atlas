@@ -122,9 +122,11 @@ namespace Atlas
         // Per-reward weights (short label → weight, sparse: only nonzero saved) edited in the
         // table under the planner toggle. Planner routes are sorted by the summed weight of
         // their predicted rewards, highest first; negative pushes a route down. The initializer
-        // is the shipped default ranking (roughly: value in Divines); ObjectCreationHandling
+        // is the shipped manual ranking (Exalted-equivalent fallback when NinjaPricer is on); ObjectCreationHandling
         // .Replace makes a saved dict REPLACE the defaults instead of merging, so a user who
         // zeroes a default-weighted reward doesn't get it resurrected on restart.
+        public bool UseNinjaRitualWeights = true;
+
         [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
         public Dictionary<string, int> RitualRewardWeights = new()
         {

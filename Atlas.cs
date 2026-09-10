@@ -1,6 +1,7 @@
 namespace Atlas
 {
     using GameHelper;
+    using GameHelper.Plugin.Price;
     using GameHelper.Localization;
     using GameHelper.Plugin;
     using GameHelper.RemoteObjects.Components;
@@ -1032,15 +1033,20 @@ namespace Atlas
             }
         }
 
+        private readonly Dictionary<StdTuple2D<int>, Vector2> centerScratch = new();
+
         public override void DrawUI()
         {
+            EnsureProcessHandle();
+            var atlasPanelAddr = GetAtlasPanelAddress();
+            var atlasUi = atlasPanelAddr == IntPtr.Zero ? default : Read<UiElement>(atlasPanelAddr);
+            if (!atlasUi.IsVisible) return;
+
             var inventoryPanel = InventoryPanel();
 
             var isGameHelperForeground = Process.GetCurrentProcess().MainWindowHandle == GetForegroundWindow();
             if (!Core.Process.Foreground && !isGameHelperForeground)
                 return;
-
-            EnsureProcessHandle();
 
             // Auto map-name language: re-slice the content/name overlays live if the GH UI language
             // changed since the last apply (no-op in explicit-override mode once tokens match).
@@ -1055,13 +1061,6 @@ namespace Atlas
                 return;
 
             var drawList = ImGui.GetBackgroundDrawList();
-
-            drawList.ChannelsSplit(4);
-
-            var atlasPanelAddr = GetAtlasPanelAddress();
-            var atlasUi = atlasPanelAddr == IntPtr.Zero ? default : Read<UiElement>(atlasPanelAddr);
-            if (!atlasUi.IsVisible)
-                return;
 
             // Node positions/connections come from the live UI tree + the panel's edge list
             // (panel+0x5A8); the 0.4.x inline vectors at +0x510/+0x528 no longer apply.
@@ -1110,7 +1109,6 @@ namespace Atlas
             {
                 // cacheFrameCounter is left past the threshold (not incremented) so a re-enable
                 // triggers a fresh read on the very next frame instead of waiting an interval.
-                drawList.ChannelsMerge();
                 return;
             }
 
@@ -1164,6 +1162,8 @@ namespace Atlas
                     if (inventoryPanel)
                         return;
 
+                drawList.ChannelsSplit(4);
+
                 // ── Route planning (shortest hops over the revealed atlas edges) ──────────
                 // Built once per frame when a routed target is wanted: the edge graph from
                 // panel+0x5A8, screen centers for on-screen nodes, the impassable set (failed
@@ -1183,7 +1183,8 @@ namespace Atlas
                      || Settings.PathToLineageMaps || Settings.PathToArbiterMaps);
                 if (wantRoute)
                 {
-                    routeCenters = new Dictionary<StdTuple2D<int>, Vector2>(nodeCache.Count);
+                    routeCenters = this.centerScratch;
+                    routeCenters.Clear();
                     routeBlocked = new HashSet<StdTuple2D<int>>();
                     accessibleSet = new HashSet<StdTuple2D<int>>();
                     foreach (var nd in nodeCache)
@@ -1261,7 +1262,8 @@ namespace Atlas
                     var gCenters = routeCenters;
                     if (gCenters == null)
                     {
-                        gCenters = new Dictionary<StdTuple2D<int>, Vector2>(nodeCache.Count);
+                        gCenters = this.centerScratch;
+                        gCenters.Clear();
                         foreach (var nd in nodeCache)
                         {
                             var ub = Read<UiElementBaseOffset>(nd.Address);
@@ -3808,7 +3810,7 @@ namespace Atlas
             public List<string> ShortMods2;       // 2nd mod per picked node (null = single-mod)
             public string PathLine;               // "Bastille  >  Headland  >  …"
             public string ModsLine;               // "+25% Tribute   -   Exalted Orbs x2 + Omen: … "
-            public int Weight;                    // sum of user reward weights over the chain's mods
+            public decimal Weight;                // automatic prices or manual fallback weights
         }
 
         private readonly List<PlannerChain> plannerChains = new();
@@ -3823,6 +3825,15 @@ namespace Atlas
         // chains when the versions diverge (so edits apply live without a full re-enumeration).
         private int plannerWeightsVersion;
         private int plannerChainsWeightsVersion = -1;
+        private readonly RitualRewardPricing ritualRewardPricing = new();
+
+        private void RefreshRitualRewardPrices()
+        {
+            EnsureRewardOptions();
+            if (this.ritualRewardPricing.Refresh(PriceProviderRegistry.Current, Settings.UseNinjaRitualWeights,
+                plannerRewardOptions, DateTime.UtcNow))
+                plannerWeightsVersion++;
+        }
 
         private static readonly Vector4[] PlannerPalette =
         {
@@ -3905,19 +3916,24 @@ namespace Atlas
         // reward neutral; negatives push routes down. Stored sparsely (only nonzero).
         private void DrawRewardWeightsTable()
         {
-            EnsureRewardOptions();
+            if (ImGui.Checkbox(this.L("atlas.ritual_ninja_weights", "Weight rewards using NinjaPricer"), ref Settings.UseNinjaRitualWeights))
+                plannerWeightsVersion++;
+            ImGuiHelper.ToolTip(this.L("atlas.ritual_ninja_weights_hint",
+                "Uses Exalted-equivalent prices, multiplied by known quantities. Unknown stack sizes use one item's price (*). " +
+                "Rewards without a price use manual weights. Scores are ranking weights, not guaranteed proceeds; manual weights count as Exalted equivalents."));
+            RefreshRitualRewardPrices();
             ImGui.Indent();
             ImGui.TextUnformatted(this.L("atlas.ritual_weights", "Reward weights"));
-            ImGuiHelper.ToolTip(this.L("atlas.ritual_weights_hint",
-                "Planner routes are sorted by the sum of these weights over the route's predicted " +
-                "rewards, highest first. 0 = neutral; negative pushes a route down the list."));
+            ImGuiHelper.ToolTip(this.L("atlas.ritual_effective_weights_hint",
+                "Routes are sorted by their total weight, highest first. Available automatic prices replace manual weights; otherwise the manual value applies. 0 = neutral; negative lowers priority."));
             if (ImGui.BeginChild("##ritualWeights", new Vector2(0, 240), ImGuiChildFlags.Borders))
             {
-                if (ImGui.BeginTable("##ritualWeightsTable", 2,
+                if (ImGui.BeginTable("##ritualWeightsTable", 3,
                     ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
                 {
                     ImGui.TableSetupColumn(this.L("atlas.weights_reward_col", "Reward"), ImGuiTableColumnFlags.WidthStretch);
-                    ImGui.TableSetupColumn(this.L("atlas.weights_weight_col", "Weight"), ImGuiTableColumnFlags.WidthFixed, 220f);
+                    ImGui.TableSetupColumn(this.L("atlas.ritual_manual_weight", "Manual fallback"), ImGuiTableColumnFlags.WidthFixed, 180f);
+                    ImGui.TableSetupColumn(this.L("atlas.ritual_ninja_value", "NinjaPricer (ex)"), ImGuiTableColumnFlags.WidthFixed, 160f);
                     ImGui.TableHeadersRow();
                     foreach (var opt in plannerRewardOptions)
                     {
@@ -3927,6 +3943,8 @@ namespace Atlas
                         ImGui.TableNextColumn();
                         ImGui.TextUnformatted(opt);
                         ImGui.TableNextColumn();
+                        bool hasPrice = this.ritualRewardPricing.TryGet(opt, out var price);
+                        ImGui.BeginDisabled(hasPrice);
                         int w = Settings.RitualRewardWeights.TryGetValue(opt, out var cur) ? cur : 0;
                         ImGui.SetNextItemWidth(-1);
                         if (ImGui.InputInt($"##rw_{opt}", ref w))
@@ -3937,6 +3955,12 @@ namespace Atlas
                                 Settings.RitualRewardWeights[opt] = w;
                             plannerWeightsVersion++;
                         }
+                        ImGui.EndDisabled();
+                        ImGui.TableNextColumn();
+                        if (hasPrice)
+                            ImGui.TextUnformatted(price.Weight.ToString("0.###", CultureInfo.InvariantCulture) + (price.UnitOnly ? " *" : string.Empty));
+                        else
+                            ImGui.TextDisabled(this.L("atlas.ritual_manual_fallback", "Manual"));
                     }
 
                     ImGui.EndTable();
@@ -3952,16 +3976,15 @@ namespace Atlas
         // the chain set change; ordering is weight DESC, then the path text for stability.
         private void SortPlannerChains()
         {
+            RefreshRitualRewardPrices();
             var weights = Settings.RitualRewardWeights;
             foreach (var c in plannerChains)
             {
-                int w = 0;
+                decimal w = 0;
                 for (int k = 0; k < c.ShortMods.Count; k++)
                 {
-                    if (weights.TryGetValue(c.ShortMods[k], out var w1))
-                        w += w1;
-                    if (c.ShortMods2[k] != null && weights.TryGetValue(c.ShortMods2[k], out var w2))
-                        w += w2;
+                    w += this.ritualRewardPricing.GetWeight(c.ShortMods[k], weights);
+                    w += this.ritualRewardPricing.GetWeight(c.ShortMods2[k], weights);
                 }
 
                 c.Weight = w;
@@ -4352,6 +4375,7 @@ namespace Atlas
             // roll; a chain matches when ANY selected reward is in it. Stored as '|'-joined
             // short labels so it survives restarts.
             EnsureRewardOptions();
+            RefreshRitualRewardPrices();
             if (plannerChainsWeightsVersion != plannerWeightsVersion)
                 this.SortPlannerChains();   // weights edited in settings — re-rank the cached chains
             var selected = new HashSet<string>(
@@ -4457,7 +4481,11 @@ namespace Atlas
                 if (c.Weight != 0)
                 {
                     ImGui.SameLine();
-                    ImGui.TextDisabled($"[{c.Weight:+0;-0}]");
+                    ImGui.TextDisabled(Settings.UseNinjaRitualWeights
+                        ? $"[{c.Weight:0.###} ex*]"
+                        : $"[{c.Weight:+0;-0}]");
+                    ImGuiHelper.ToolTip(this.L("atlas.ritual_score_hint",
+                        "Ranking score: known quantities use total prices; unknown quantities use unit prices. Unpriced rewards use manual weights. This is not a guaranteed route value."));
                 }
 
                 ImGui.TextColored(modColor, c.ModsLine);
